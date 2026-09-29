@@ -23,7 +23,6 @@ export const Navbar: React.FC = () => {
   const navLinks = [
     { name: 'Home', href: '#hero', isMenu: false },
     { name: 'Menu', href: '/menu', isMenu: true },
-    { name: 'Thalis', href: '#thalis', isMenu: false },
     { name: 'Why Firewood', href: '#why-firewood', isMenu: false },
     { name: 'Our Story', href: '#our-story', isMenu: false },
     { name: 'Assam Heritage', href: '#culture', isMenu: false },
