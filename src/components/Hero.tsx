@@ -3,20 +3,19 @@ import { Flame, Home, Truck, ChevronRight, Sparkles } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 
 export const Hero: React.FC = () => {
-  const { setIsCartOpen } = useCart();
+  const { navigateTo } = useCart();
 
   const handleOrderClick = () => {
     const menuSection = document.getElementById('menu');
     if (menuSection) {
       menuSection.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      navigateTo('menu');
     }
   };
 
-  const handleExploreThalis = () => {
-    const thaliSection = document.getElementById('thalis');
-    if (thaliSection) {
-      thaliSection.scrollIntoView({ behavior: 'smooth' });
-    }
+  const handleExploreMenu = () => {
+    navigateTo('menu');
   };
 
   return (
@@ -75,7 +74,7 @@ export const Hero: React.FC = () => {
           </button>
 
           <button
-            onClick={handleExploreThalis}
+            onClick={handleExploreMenu}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-forest-900/80 hover:bg-forest-800/90 text-white font-semibold text-base px-7 py-4 rounded-full border border-brass-500/40 hover:border-brass-400 backdrop-blur-md transition-all duration-300"
           >
             <span>EXPLORE MENU</span>
