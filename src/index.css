@@ -1,0 +1,138 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+
+  /* Custom brass scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0e2617;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #c99b22;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #e0b034;
+  }
+}
+
+/* Assamese Gamocha Red & Cream Pattern Strip */
+.gamocha-border-top {
+  background-image: repeating-linear-gradient(
+    45deg,
+    #b31f1f 0px,
+    #b31f1f 4px,
+    #faf6ee 4px,
+    #faf6ee 8px
+  );
+  height: 6px;
+}
+
+.gamocha-strip {
+  background: repeating-linear-gradient(
+    90deg,
+    #b31f1f,
+    #b31f1f 12px,
+    transparent 12px,
+    transparent 16px,
+    #b31f1f 16px,
+    #b31f1f 28px,
+    transparent 28px,
+    transparent 36px
+  );
+  height: 3px;
+}
+
+/* Traditional Assamese Diamond Phulam Motif Divider */
+.phulam-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.phulam-divider::before,
+.phulam-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #c99b22, transparent);
+}
+
+/* Firewood Ember and Glow Effects */
+.firewood-glow {
+  text-shadow: 0 0 25px rgba(220, 53, 53, 0.7), 0 0 50px rgba(235, 120, 30, 0.4);
+}
+
+.brass-gradient-text {
+  background: linear-gradient(135deg, #f5d77f 0%, #d8a834 50%, #9e7514 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.brass-border-shine {
+  border: 1px solid rgba(201, 155, 34, 0.4);
+  box-shadow: 0 0 15px rgba(201, 155, 34, 0.15) inset;
+}
+
+/* Subtle bamboo textured backdrop */
+.bamboo-pattern {
+  background-color: #faf6ee;
+  background-image: radial-gradient(#d5c7b3 0.75px, transparent 0.75px), radial-gradient(#d5c7b3 0.75px, #faf6ee 0.75px);
+  background-size: 30px 30px;
+  background-position: 0 0, 15px 15px;
+}
+
+.dark-hearth-pattern {
+  background-color: #0b1a10;
+  background-image: radial-gradient(rgba(201, 155, 34, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Organic card curves */
+.curved-tag {
+  clip-path: polygon(0% 0%, 100% 0%, 94% 50%, 100% 100%, 0% 100%);
+}
+
+/* Steam animation keyframes */
+@keyframes steamDrift {
+  0% {
+    transform: translateY(0px) scale(0.95);
+    opacity: 0.2;
+  }
+  50% {
+    transform: translateY(-20px) scale(1.05);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(-45px) scale(1.15);
+    opacity: 0;
+  }
+}
+
+.animate-steam {
+  animation: steamDrift 4s ease-in-out infinite;
+}
+
+@keyframes sparkRise {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(-60px) scale(0);
+    opacity: 0;
+  }
+}
+
+.animate-spark {
+  animation: sparkRise 2s ease-out infinite;
+}

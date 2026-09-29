@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function: Check if user is authenticated (Kitchen Admin)
+    function isAdmin() {
+      return request.auth != null;
+    }
+
+    // =========================================================
+    // 1. PRODUCTS (Menu Dishes)
+    // Public can view dishes; Only Admin can create/edit/delete
+    // =========================================================
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // =========================================================
+    // 2. CATEGORIES (Item Categories)
+    // Public can view categories; Only Admin can create/delete
+    // =========================================================
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // =========================================================
+    // 3. LOCALITIES (Guwahati Delivery Zones)
+    // Public can view active areas; Only Admin can add/edit/toggle
+    // =========================================================
+    match /localities/{localityId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // =========================================================
+    // 4. ORDERS (Customer Orders)
+    // Any customer can place an order; Only Admin can view and update status
+    // =========================================================
+    match /orders/{orderId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+  }
+}
