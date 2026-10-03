@@ -22,8 +22,8 @@ import {
   serverTimestamp,
   writeBatch
 } from "firebase/firestore";
-import { MenuItem, Order, OrderStatus, CategoryItem, DeliveryLocality } from "../types";
-import { DEFAULT_CATEGORIES, DEFAULT_LOCALITIES } from "../data/menuData";
+import { MenuItem, Order, OrderStatus, CategoryItem, DeliveryLocality, TiffinBooking, TiffinBookingStatus, TiffinPlan } from "../types";
+import { DEFAULT_CATEGORIES, DEFAULT_LOCALITIES, DEFAULT_TIFFIN_PLANS } from "../data/menuData";
 
 // Firebase credentials provided by user
 const firebaseConfig = {
@@ -55,6 +55,8 @@ const PRODUCTS_COLLECTION = "products";
 const ORDERS_COLLECTION = "orders";
 const CATEGORIES_COLLECTION = "categories";
 const LOCALITIES_COLLECTION = "localities";
+const TIFFIN_BOOKINGS_COLLECTION = "tiffin_bookings";
+const TIFFIN_PLANS_COLLECTION = "tiffin_plans";
 
 /**
  * Remove undefined values to prevent Firestore 'Unsupported field value: undefined' errors
@@ -428,6 +430,214 @@ export async function seedDefaultLocalities(): Promise<void> {
       isActive: loc.isActive,
       createdAt: serverTimestamp()
     });
+  }
+  await batch.commit();
+}
+
+/* =========================================================================
+   OFFICE TIFFIN SERVICES (Daily Lunch Tiffin Subscriptions & Bookings)
+========================================================================= */
+
+/**
+ * Add a new office tiffin booking to Firestore
+ */
+export async function addTiffinBookingToFirestore(booking: Omit<TiffinBooking, "id">): Promise<string> {
+  const cleaned = cleanFirestoreData(booking);
+  const docRef = await addDoc(collection(db, TIFFIN_BOOKINGS_COLLECTION), {
+    ...cleaned,
+    status: booking.status || 'NEW',
+    createdAt: serverTimestamp(),
+    placedTimeStr: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  });
+  return docRef.id;
+}
+
+/**
+ * Real-time subscription to office tiffin bookings in Firestore
+ */
+export function subscribeToTiffinBookings(
+  onUpdate: (bookings: TiffinBooking[]) => void,
+  onError?: (error: Error) => void
+) {
+  const q = query(collection(db, TIFFIN_BOOKINGS_COLLECTION), orderBy("createdAt", "desc"));
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const list: TiffinBooking[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        list.push({
+          id: docSnap.id,
+          bookingNumber: data.bookingNumber || docSnap.id.slice(0, 7).toUpperCase(),
+          customerName: data.customerName || "Customer",
+          contactNumber: data.contactNumber || "",
+          isVegetarian: Boolean(data.isVegetarian),
+          dietaryPreference: data.dietaryPreference || (data.isVegetarian ? 'VEG' : 'NON_VEG'),
+          lunchTime: data.lunchTime || "1:00 PM",
+          officeName: data.officeName || "",
+          deliveryAddress: data.deliveryAddress || "",
+          landmark: data.landmark || "",
+          deliveryArea: data.deliveryArea || "Dispur",
+          planType: data.planType || "WEEKLY_6_DAYS",
+          startDate: data.startDate || "",
+          numberOfMeals: Number(data.numberOfMeals) || 6,
+          totalPrice: Number(data.totalPrice) || 0,
+          specialDietNotes: data.specialDietNotes || "",
+          status: (data.status as TiffinBookingStatus) || "NEW",
+          createdAt: data.createdAt,
+          placedTimeStr: data.placedTimeStr || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        });
+      });
+      onUpdate(list);
+    },
+    (err) => {
+      console.warn("Firestore tiffin bookings onSnapshot warning:", err.message);
+      if (onError) onError(err);
+    }
+  );
+}
+
+/**
+ * Update tiffin booking status (NEW -> CONFIRMED -> ACTIVE -> PAUSED -> COMPLETED -> CANCELLED)
+ */
+export async function updateTiffinBookingStatusInFirestore(bookingId: string, status: TiffinBookingStatus): Promise<void> {
+  const docRef = doc(db, TIFFIN_BOOKINGS_COLLECTION, bookingId);
+  await updateDoc(docRef, {
+    status,
+    updatedAt: serverTimestamp()
+  });
+}
+
+/**
+ * Delete / Archive tiffin booking
+ */
+export async function deleteTiffinBookingFromFirestore(bookingId: string): Promise<void> {
+  const docRef = doc(db, TIFFIN_BOOKINGS_COLLECTION, bookingId);
+  await deleteDoc(docRef);
+}
+
+/* =========================================================================
+   DYNAMIC TIFFIN PLANS MANAGEMENT (Admin can edit prices, details & perks)
+========================================================================= */
+
+/**
+ * Real-time subscription to tiffin plans in Firestore
+ */
+export function subscribeToTiffinPlans(
+  onUpdate: (plans: TiffinPlan[]) => void,
+  onError?: (error: Error) => void
+) {
+  const q = query(collection(db, TIFFIN_PLANS_COLLECTION));
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      if (snapshot.empty) {
+        onUpdate([]);
+        return;
+      }
+      const list: TiffinPlan[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        list.push({
+          id: docSnap.id,
+          planKey: data.planKey || docSnap.id,
+          name: data.name || "Tiffin Plan",
+          badgeTag: data.badgeTag || "",
+          daysCount: Number(data.daysCount) || 1,
+          vegPrice: Number(data.vegPrice) || 0,
+          nonVegPrice: Number(data.nonVegPrice) || 0,
+          description: data.description || "",
+          vegIncludes: Array.isArray(data.vegIncludes) ? data.vegIncludes : [],
+          nonVegIncludes: Array.isArray(data.nonVegIncludes) ? data.nonVegIncludes : [],
+          perks: Array.isArray(data.perks) ? data.perks : [],
+          displayOrder: Number(data.displayOrder) || 1,
+          isActive: data.isActive ?? true,
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt
+        });
+      });
+
+      // Sort by displayOrder
+      list.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+      onUpdate(list);
+    },
+    (err) => {
+      console.warn("Firestore tiffin plans onSnapshot warning:", err.message);
+      if (onError) onError(err);
+    }
+  );
+}
+
+/**
+ * Update an existing tiffin plan's prices and details.
+ * Uses setDoc with merge:true so if the document does not exist yet in Firestore,
+ * it will be created seamlessly without failing.
+ */
+export async function updateTiffinPlanInFirestore(planId: string, updates: Partial<TiffinPlan>): Promise<void> {
+  const docRef = doc(db, TIFFIN_PLANS_COLLECTION, planId);
+  const cleaned = cleanFirestoreData(updates);
+  delete (cleaned as any).id;
+  await setDoc(docRef, {
+    ...cleaned,
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+}
+
+/**
+ * Add a new tiffin plan to Firestore
+ */
+export async function addTiffinPlanToFirestore(plan: Omit<TiffinPlan, "id">): Promise<string> {
+  const cleaned = cleanFirestoreData(plan);
+  const docRef = await addDoc(collection(db, TIFFIN_PLANS_COLLECTION), {
+    ...cleaned,
+    isActive: plan.isActive ?? true,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+  return docRef.id;
+}
+
+/**
+ * Delete a tiffin plan from Firestore
+ */
+export async function deleteTiffinPlanFromFirestore(planId: string): Promise<void> {
+  const docRef = doc(db, TIFFIN_PLANS_COLLECTION, planId);
+  await deleteDoc(docRef);
+}
+
+/**
+ * Seed specific tiffin plans into Firestore
+ */
+export async function seedTiffinPlansWithData(plans: TiffinPlan[]): Promise<void> {
+  const batch = writeBatch(db);
+  for (const plan of plans) {
+    const docRef = doc(db, TIFFIN_PLANS_COLLECTION, plan.id);
+    const cleaned = cleanFirestoreData(plan);
+    delete (cleaned as any).id;
+    batch.set(docRef, {
+      ...cleaned,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  }
+  await batch.commit();
+}
+
+/**
+ * Seed default tiffin plans into Firestore
+ */
+export async function seedDefaultTiffinPlans(): Promise<void> {
+  const batch = writeBatch(db);
+  for (const plan of DEFAULT_TIFFIN_PLANS) {
+    const docRef = doc(db, TIFFIN_PLANS_COLLECTION, plan.id);
+    const cleaned = cleanFirestoreData(plan);
+    delete (cleaned as any).id;
+    batch.set(docRef, {
+      ...cleaned,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
   }
   await batch.commit();
 }

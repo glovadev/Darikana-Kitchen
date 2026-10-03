@@ -3,7 +3,7 @@ import { Flame, Home, Truck, ChevronRight, Sparkles } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 
 export const Hero: React.FC = () => {
-  const { navigateTo } = useCart();
+  const { navigateTo, openTiffinBookingModal } = useCart();
 
   const handleOrderClick = () => {
     const menuSection = document.getElementById('menu');
@@ -63,10 +63,10 @@ export const Hero: React.FC = () => {
         </p>
 
         {/* CTA Button Group */}
-        <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto mb-12">
+        <div className="flex flex-col sm:flex-row items-center gap-3.5 w-full sm:w-auto mb-10">
           <button
             onClick={handleOrderClick}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-3 bg-gradient-to-r from-brass-500 via-brass-400 to-brass-500 hover:from-brass-400 hover:to-brass-300 text-forest-950 font-extrabold text-base px-8 py-4 rounded-full shadow-2xl shadow-brass/30 transform hover:-translate-y-1 transition-all duration-300 active:translate-y-0"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-3 bg-gradient-to-r from-brass-500 via-brass-400 to-brass-500 hover:from-brass-400 hover:to-brass-300 text-forest-950 font-extrabold text-sm sm:text-base px-7 py-3.5 sm:py-4 rounded-full shadow-2xl shadow-brass/30 transform hover:-translate-y-1 transition-all duration-300 active:translate-y-0"
           >
             <Flame className="w-5 h-5 text-assamRed-700 fill-assamRed-700" />
             <span>ORDER NOW</span>
@@ -74,8 +74,19 @@ export const Hero: React.FC = () => {
           </button>
 
           <button
+            onClick={() => openTiffinBookingModal()}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-forest-900/90 hover:bg-forest-850 text-brass-300 hover:text-white font-bold text-sm sm:text-base px-6 py-3.5 sm:py-4 rounded-full border-2 border-brass-500/60 shadow-lg backdrop-blur-md transform hover:-translate-y-1 transition-all duration-300"
+          >
+            <span className="text-lg">🍱</span>
+            <span>BOOK OFFICE TIFFIN</span>
+            <span className="text-[10px] bg-emerald-600 text-white font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+              Daily
+            </span>
+          </button>
+
+          <button
             onClick={handleExploreMenu}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-forest-900/80 hover:bg-forest-800/90 text-white font-semibold text-base px-7 py-4 rounded-full border border-brass-500/40 hover:border-brass-400 backdrop-blur-md transition-all duration-300"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-black/40 hover:bg-black/60 text-white font-medium text-sm sm:text-base px-6 py-3.5 sm:py-4 rounded-full border border-white/20 hover:border-brass-400 backdrop-blur-md transition-all duration-300"
           >
             <span>EXPLORE MENU</span>
           </button>

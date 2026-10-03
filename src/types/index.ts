@@ -94,3 +94,47 @@ export interface Testimonial {
   dishOrdered: string;
   date: string;
 }
+
+export type TiffinDietary = 'VEG' | 'NON_VEG';
+export type TiffinPlanType = 'TRIAL_1_DAY' | 'WEEKLY_6_DAYS' | 'MONTHLY_26_DAYS' | (string & {});
+export type TiffinBookingStatus = 'NEW' | 'CONFIRMED' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'CANCELLED';
+
+export interface TiffinPlan {
+  id: string;
+  planKey: string;
+  name: string;
+  badgeTag?: string;
+  daysCount: number;
+  vegPrice: number;
+  nonVegPrice: number;
+  description: string;
+  vegIncludes: string[];
+  nonVegIncludes: string[];
+  perks: string[];
+  displayOrder?: number;
+  isActive: boolean;
+  createdAt?: any;
+  updatedAt?: any;
+}
+
+export interface TiffinBooking {
+  id: string;
+  bookingNumber: string;
+  customerName: string;
+  contactNumber: string;
+  isVegetarian: boolean; // whether customer is vegetarian
+  dietaryPreference: TiffinDietary;
+  lunchTime: string; // when lunch delivery is needed
+  officeName?: string;
+  deliveryAddress: string;
+  landmark?: string;
+  deliveryArea: string;
+  planType: TiffinPlanType;
+  startDate?: string;
+  numberOfMeals?: number;
+  totalPrice?: number;
+  specialDietNotes?: string;
+  status: TiffinBookingStatus;
+  createdAt?: any;
+  placedTimeStr?: string;
+}

@@ -3,7 +3,7 @@ import { Flame, MapPin, Phone, Mail, MessageCircle, Heart } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 
 export const Footer: React.FC = () => {
-  const { setActiveCategory, navigateTo } = useCart();
+  const { setActiveCategory, navigateTo, openTiffinBookingModal } = useCart();
 
   const handleCategoryClick = (cat: string) => {
     setActiveCategory(cat);
@@ -94,6 +94,15 @@ export const Footer: React.FC = () => {
                 <button onClick={() => navigateTo('menu')} className="hover:text-brass-300 transition-colors text-left font-bold text-brass-300">Explore Full Menu →</button>
               </li>
               <li>
+                <button onClick={() => openTiffinBookingModal()} className="hover:text-brass-300 transition-colors text-left font-bold text-emerald-400 flex items-center gap-1.5">
+                  <span>🍱 Daily Office Tiffin</span>
+                  <span className="text-[9px] bg-emerald-700 text-white px-1.5 py-0.2 rounded-full uppercase">Book</span>
+                </button>
+              </li>
+              <li>
+                <a href="#office-tiffin" onClick={() => navigateTo('home')} className="hover:text-brass-300 transition-colors">Tiffin Pricing Plans</a>
+              </li>
+              <li>
                 <a href="#thalis" onClick={() => navigateTo('home')} className="hover:text-brass-300 transition-colors">Featured Thalis</a>
               </li>
               <li>
@@ -101,9 +110,6 @@ export const Footer: React.FC = () => {
               </li>
               <li>
                 <a href="#our-story" className="hover:text-brass-300 transition-colors">Our Founder's Story</a>
-              </li>
-              <li>
-                <a href="#culture" className="hover:text-brass-300 transition-colors">Assam Heritage</a>
               </li>
               <li>
                 <button

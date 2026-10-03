@@ -32,12 +32,14 @@ import {
   Tag,
   ToggleLeft,
   ToggleRight,
-  Check
+  Check,
+  Calendar,
+  MessageCircle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { uploadToCloudinary } from '../services/cloudinary';
-import { MenuItem, MenuCategory, Order, OrderStatus } from '../types';
+import { MenuItem, MenuCategory, Order, OrderStatus, TiffinBooking, TiffinBookingStatus, TiffinPlan } from '../types';
 
 export const AdminPage: React.FC = () => {
   const { 
@@ -49,6 +51,14 @@ export const AdminPage: React.FC = () => {
     seedProducts, 
     updateOrderStatus, 
     deleteOrder,
+    tiffinBookings,
+    updateTiffinStatus,
+    deleteTiffinBooking,
+    tiffinPlans,
+    updateTiffinPlan,
+    addTiffinPlan,
+    deleteTiffinPlan,
+    seedTiffinPlans,
     categories,
     addCategory,
     deleteCategory,
@@ -64,13 +74,38 @@ export const AdminPage: React.FC = () => {
   const { currentUser, login, signup, logout, error, clearError } = useAuth();
 
   // Navigation tab
-  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'add' | 'categories' | 'localities' | 'analytics' | 'tools'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'add' | 'categories' | 'localities' | 'analytics' | 'tools' | 'tiffins'>('orders');
 
   // Auth Form State
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('admin@darikanakitchen.com');
   const [password, setPassword] = useState('darikana2026');
   const [isAuthLoading, setIsAuthLoading] = useState(false);
+
+  // Tiffin Filter & Search State
+  const [tiffinFilter, setTiffinFilter] = useState<'ALL' | TiffinBookingStatus>('ALL');
+  const [tiffinSearch, setTiffinSearch] = useState('');
+  const [tiffinSubTab, setTiffinSubTab] = useState<'bookings' | 'plans'>('bookings');
+
+  // Tiffin Plan Form / Editing State
+  const [editingPlan, setEditingPlan] = useState<TiffinPlan | null>(null);
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+  const [isSubmittingPlan, setIsSubmittingPlan] = useState(false);
+  const [isSeedingPlans, setIsSeedingPlans] = useState(false);
+  const [planFormData, setPlanFormData] = useState({
+    name: '',
+    planKey: '',
+    badgeTag: '',
+    daysCount: 6,
+    vegPrice: 750,
+    nonVegPrice: 980,
+    description: '',
+    vegIncludes: '',
+    nonVegIncludes: '',
+    perks: '',
+    displayOrder: 1,
+    isActive: true
+  });
 
   // Orders Filter & Search
   const [orderFilter, setOrderFilter] = useState<'ALL' | OrderStatus>('ALL');
@@ -186,6 +221,128 @@ export const AdminPage: React.FC = () => {
       // error handled by AuthContext
     } finally {
       setIsAuthLoading(false);
+    }
+  };
+
+  // Tiffin Plan Handlers
+  const handleOpenEditPlan = (plan: TiffinPlan) => {
+    setEditingPlan(plan);
+    setPlanFormData({
+      name: plan.name,
+      planKey: plan.planKey,
+      badgeTag: plan.badgeTag || '',
+      daysCount: plan.daysCount || 1,
+      vegPrice: plan.vegPrice,
+      nonVegPrice: plan.nonVegPrice,
+      description: plan.description || '',
+      vegIncludes: Array.isArray(plan.vegIncludes) ? plan.vegIncludes.join(', ') : (plan.vegIncludes || ''),
+      nonVegIncludes: Array.isArray(plan.nonVegIncludes) ? plan.nonVegIncludes.join(', ') : (plan.nonVegIncludes || ''),
+      perks: (plan.perks || []).join(', '),
+      displayOrder: plan.displayOrder || 1,
+      isActive: plan.isActive !== false
+    });
+    setIsPlanModalOpen(true);
+  };
+
+  const handleOpenAddPlan = () => {
+    setEditingPlan(null);
+    setPlanFormData({
+      name: '',
+      planKey: `PLAN_${Date.now()}`,
+      badgeTag: '',
+      daysCount: 6,
+      vegPrice: 750,
+      nonVegPrice: 980,
+      description: 'Fresh mud-chulha lunch box delivered to your office desk daily.',
+      vegIncludes: 'Aromatic Joha Rice, Yellow/Mati Dal, Seasonal Sabji (Labra), Aloo or Khar Pitika, Paneer or Bilahi Tok, Fresh Salad & Assam Lemon.',
+      nonVegIncludes: 'Joha Rice, Dal, Mud-Chulha Local Fish Curry (Rohu/Borali) or Local Chicken Curry + Seasonal Sabji, Pitika & Salad.',
+      perks: 'Mud-Chulha Firewood Taste, Priority Desk Delivery, Microwave-Safe Containers',
+      displayOrder: tiffinPlans.length + 1,
+      isActive: true
+    });
+    setIsPlanModalOpen(true);
+  };
+
+  const handleSavePlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!planFormData.name.trim()) {
+      alert('Please enter a plan name.');
+      return;
+    }
+    const days = Math.max(1, Number(planFormData.daysCount) || 1);
+    const veg = Math.max(0, Number(planFormData.vegPrice) || 0);
+    const nonVeg = Math.max(0, Number(planFormData.nonVegPrice) || 0);
+
+    const perksArray = planFormData.perks
+      .split(',')
+      .map(p => p.trim())
+      .filter(p => p.length > 0);
+
+    const vegIncludesArray = planFormData.vegIncludes
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+
+    const nonVegIncludesArray = planFormData.nonVegIncludes
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+
+    setIsSubmittingPlan(true);
+    try {
+      if (editingPlan) {
+        await updateTiffinPlan(editingPlan.id, {
+          name: planFormData.name.trim(),
+          planKey: planFormData.planKey.trim() || editingPlan.planKey,
+          badgeTag: planFormData.badgeTag.trim(),
+          daysCount: days,
+          vegPrice: veg,
+          nonVegPrice: nonVeg,
+          description: planFormData.description.trim(),
+          vegIncludes: vegIncludesArray,
+          nonVegIncludes: nonVegIncludesArray,
+          perks: perksArray,
+          displayOrder: Number(planFormData.displayOrder) || 1,
+          isActive: planFormData.isActive
+        });
+        setNotification({ type: 'success', text: `Tiffin plan "${planFormData.name}" updated successfully!` });
+      } else {
+        await addTiffinPlan({
+          name: planFormData.name.trim(),
+          planKey: planFormData.planKey.trim() || `PLAN_${Date.now()}`,
+          badgeTag: planFormData.badgeTag.trim(),
+          daysCount: days,
+          vegPrice: veg,
+          nonVegPrice: nonVeg,
+          description: planFormData.description.trim(),
+          vegIncludes: vegIncludesArray,
+          nonVegIncludes: nonVegIncludesArray,
+          perks: perksArray,
+          displayOrder: Number(planFormData.displayOrder) || tiffinPlans.length + 1,
+          isActive: planFormData.isActive
+        });
+        setNotification({ type: 'success', text: `New tiffin plan "${planFormData.name}" created successfully!` });
+      }
+      setIsPlanModalOpen(false);
+      setEditingPlan(null);
+    } catch (err: any) {
+      setNotification({ type: 'error', text: err.message || 'Failed to save tiffin plan' });
+    } finally {
+      setIsSubmittingPlan(false);
+    }
+  };
+
+  const handleResetTiffinPlans = async () => {
+    if (window.confirm('Reset tiffin plans to Darikana Kitchen default pricing (Trial ₹130/₹170, Weekly ₹750/₹980, Monthly ₹3190/₹4150)?')) {
+      setIsSeedingPlans(true);
+      try {
+        await seedTiffinPlans();
+        setNotification({ type: 'success', text: 'Default tiffin plans restored and synced to website!' });
+      } catch (err: any) {
+        setNotification({ type: 'error', text: err.message || 'Failed to reset tiffin plans' });
+      } finally {
+        setIsSeedingPlans(false);
+      }
     }
   };
 
@@ -332,6 +489,26 @@ export const AdminPage: React.FC = () => {
 
   const pendingCount = orders.filter(o => o.status === 'NEW' || o.status === 'COOKING').length;
   const totalRevenue = orders.reduce((sum, o) => o.status !== 'CANCELLED' ? sum + o.grandTotal : sum, 0);
+
+  // Filtered Tiffins
+  const filteredTiffins = tiffinBookings.filter(t => {
+    if (tiffinFilter !== 'ALL' && t.status !== tiffinFilter) return false;
+    if (tiffinSearch.trim()) {
+      const q = tiffinSearch.toLowerCase();
+      const matchName = t.customerName.toLowerCase().includes(q);
+      const matchPhone = t.contactNumber.includes(q);
+      const matchId = t.bookingNumber.toLowerCase().includes(q);
+      const matchLoc = t.deliveryArea.toLowerCase().includes(q);
+      const matchOffice = (t.officeName || '').toLowerCase().includes(q);
+      return matchName || matchPhone || matchId || matchLoc || matchOffice;
+    }
+    return true;
+  });
+
+  const newTiffinCount = tiffinBookings.filter(t => t.status === 'NEW').length;
+  const activeTiffinCount = tiffinBookings.filter(t => t.status === 'ACTIVE' || t.status === 'CONFIRMED').length;
+  const vegTiffinCount = tiffinBookings.filter(t => t.isVegetarian).length;
+  const nonVegTiffinCount = tiffinBookings.filter(t => !t.isVegetarian).length;
 
   // If Not Authenticated, show Dedicated Login Screen
   if (!currentUser) {
@@ -532,6 +709,30 @@ export const AdminPage: React.FC = () => {
               {pendingCount > 0 && (
                 <span className="bg-assamRed-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse">
                   {pendingCount}
+                </span>
+              )}
+            </button>
+
+            {/* Office Tiffins Nav Button */}
+            <button
+              onClick={() => setActiveTab('tiffins')}
+              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all ${
+                activeTab === 'tiffins'
+                  ? 'bg-forest-950 text-white shadow'
+                  : 'text-forest-900 hover:bg-riceCream-100'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="text-sm">🍱</span>
+                <span>Office Tiffins</span>
+              </div>
+              {newTiffinCount > 0 ? (
+                <span className="bg-emerald-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse">
+                  {newTiffinCount}
+                </span>
+              ) : (
+                <span className="text-[10px] text-forest-700/60 font-semibold">
+                  {tiffinBookings.length}
                 </span>
               )}
             </button>
@@ -1886,6 +2087,800 @@ export const AdminPage: React.FC = () => {
 
               </div>
 
+            </div>
+          )}
+
+          {/* 6. OFFICE TIFFIN BOOKINGS & SUBSCRIPTIONS VIEW */}
+          {activeTab === 'tiffins' && (
+            <div className="space-y-6">
+              
+              {/* Top Subtab Bar: Customer Bookings vs Plans & Dynamic Pricing */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-bamboo-200 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTiffinSubTab('bookings')}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
+                      tiffinSubTab === 'bookings'
+                        ? 'bg-forest-950 text-brass-300 shadow'
+                        : 'bg-riceCream-50 text-forest-900 hover:bg-riceCream-100 border border-bamboo-200'
+                    }`}
+                  >
+                    <span className="text-sm">🍱</span>
+                    <span>Customer Bookings</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
+                      tiffinSubTab === 'bookings' ? 'bg-forest-900 text-brass-300' : 'bg-bamboo-200 text-forest-950'
+                    }`}>
+                      {tiffinBookings.length}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTiffinSubTab('plans')}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
+                      tiffinSubTab === 'plans'
+                        ? 'bg-forest-950 text-brass-300 shadow'
+                        : 'bg-riceCream-50 text-forest-900 hover:bg-riceCream-100 border border-bamboo-200'
+                    }`}
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-brass-400" />
+                    <span>Tiffin Plans & Dynamic Pricing</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
+                      tiffinSubTab === 'plans' ? 'bg-forest-900 text-brass-300' : 'bg-bamboo-200 text-forest-950'
+                    }`}>
+                      {tiffinPlans.length} plans
+                    </span>
+                  </button>
+                </div>
+
+                {tiffinSubTab === 'plans' && (
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <button
+                      type="button"
+                      onClick={handleResetTiffinPlans}
+                      disabled={isSeedingPlans}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-forest-900/70 hover:text-assamRed-700 hover:bg-riceCream-100 border border-bamboo-300 transition-colors"
+                      title="Reset to default plans and pricing"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isSeedingPlans ? 'animate-spin' : ''}`} />
+                      <span>Reset Defaults</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleOpenAddPlan}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-forest-950 hover:bg-forest-900 text-brass-300 shadow transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Tiffin Plan</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* A. CUSTOMER BOOKINGS SUB-TAB */}
+              {tiffinSubTab === 'bookings' && (
+                <div className="space-y-6">
+              
+              {/* Header & Search */}
+              <div className="bg-white rounded-2xl p-5 border border-bamboo-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-serif font-bold text-xl text-forest-950 flex items-center gap-2">
+                    <span className="text-2xl">🍱</span>
+                    <span>Daily Office Tiffin Bookings</span>
+                  </h3>
+                  <p className="text-xs text-forest-900/60 mt-0.5">
+                    Manage office customer registrations, lunch delivery times, dietary choices & schedules
+                  </p>
+                </div>
+
+                <div className="relative w-full sm:w-72">
+                  <input
+                    type="text"
+                    placeholder="Search by customer, phone, office..."
+                    value={tiffinSearch}
+                    onChange={(e) => setTiffinSearch(e.target.value)}
+                    className="w-full bg-riceCream-50 border border-bamboo-300 rounded-xl px-3.5 py-2 text-xs text-forest-950 focus:outline-none focus:ring-2 focus:ring-brass-500 pl-9"
+                  />
+                  <Search className="w-4 h-4 text-forest-900/40 absolute left-3 top-2.5" />
+                  {tiffinSearch && (
+                    <button
+                      onClick={() => setTiffinSearch('')}
+                      className="absolute right-3 top-2.5 text-forest-900/40 hover:text-forest-950"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Tiffin Metrics Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
+                <div className="bg-white p-4 rounded-2xl border border-bamboo-200 shadow-sm">
+                  <span className="text-[10px] text-forest-900/60 font-bold uppercase tracking-wider block">
+                    Total Bookings
+                  </span>
+                  <span className="font-serif text-2xl font-black text-forest-950 mt-1 block">
+                    {tiffinBookings.length}
+                  </span>
+                  <span className="text-[10px] text-brass-700 font-semibold">All registrations</span>
+                </div>
+
+                <div className="bg-white p-4 rounded-2xl border border-bamboo-200 shadow-sm">
+                  <span className="text-[10px] text-forest-900/60 font-bold uppercase tracking-wider block">
+                    New / Action Req.
+                  </span>
+                  <span className="font-serif text-2xl font-black text-assamRed-700 mt-1 block">
+                    {newTiffinCount}
+                  </span>
+                  <span className="text-[10px] text-assamRed-700 font-bold">Needs dispatch call</span>
+                </div>
+
+                <div className="bg-white p-4 rounded-2xl border border-bamboo-200 shadow-sm">
+                  <span className="text-[10px] text-forest-900/60 font-bold uppercase tracking-wider block">
+                    Active Subscriptions
+                  </span>
+                  <span className="font-serif text-2xl font-black text-emerald-700 mt-1 block">
+                    {activeTiffinCount}
+                  </span>
+                  <span className="text-[10px] text-emerald-700 font-semibold">Active tiffins</span>
+                </div>
+
+                <div className="bg-white p-4 rounded-2xl border border-bamboo-200 shadow-sm">
+                  <span className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider block flex items-center gap-1">
+                    <span>🌱 Veg (নিয়ামিষ)</span>
+                  </span>
+                  <span className="font-serif text-2xl font-black text-forest-950 mt-1 block">
+                    {vegTiffinCount}
+                  </span>
+                  <span className="text-[10px] text-forest-900/60 font-semibold">Vegetarian customers</span>
+                </div>
+
+                <div className="bg-white p-4 rounded-2xl border border-bamboo-200 shadow-sm col-span-2 sm:col-span-1">
+                  <span className="text-[10px] text-assamRed-800 font-bold uppercase tracking-wider block flex items-center gap-1">
+                    <span>🍗 Non-Veg (আমিষ)</span>
+                  </span>
+                  <span className="font-serif text-2xl font-black text-forest-950 mt-1 block">
+                    {nonVegTiffinCount}
+                  </span>
+                  <span className="text-[10px] text-forest-900/60 font-semibold">Fish / Chicken lovers</span>
+                </div>
+              </div>
+
+              {/* Status Filters */}
+              <div className="flex flex-wrap items-center gap-2">
+                {(['ALL', 'NEW', 'CONFIRMED', 'ACTIVE', 'PAUSED', 'COMPLETED', 'CANCELLED'] as const).map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => setTiffinFilter(st)}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                      tiffinFilter === st
+                        ? 'bg-forest-950 text-brass-300 shadow-sm'
+                        : 'bg-white text-forest-900 border border-bamboo-200 hover:bg-riceCream-100'
+                    }`}
+                  >
+                    {st === 'ALL' ? `All (${tiffinBookings.length})` : st}
+                  </button>
+                ))}
+              </div>
+
+              {/* Bookings List */}
+              {filteredTiffins.length === 0 ? (
+                <div className="bg-white rounded-3xl p-12 text-center border border-bamboo-200 shadow-sm">
+                  <div className="w-16 h-16 rounded-full bg-riceCream-200 text-forest-900 flex items-center justify-center mx-auto mb-3 text-2xl">
+                    🍱
+                  </div>
+                  <h4 className="font-serif font-bold text-lg text-forest-950 mb-1">
+                    No Office Tiffin Bookings Found
+                  </h4>
+                  <p className="text-xs text-forest-900/60 max-w-sm mx-auto">
+                    {tiffinSearch || tiffinFilter !== 'ALL'
+                      ? 'No bookings match your current search or status filter.'
+                      : 'Office lunch registrations placed on the customer website will appear here instantly via Firebase Firestore.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {filteredTiffins.map((booking) => {
+                    const statusColors = {
+                      NEW: 'bg-amber-100 text-amber-800 border-amber-300',
+                      CONFIRMED: 'bg-blue-100 text-blue-800 border-blue-300',
+                      ACTIVE: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+                      PAUSED: 'bg-purple-100 text-purple-800 border-purple-300',
+                      COMPLETED: 'bg-slate-100 text-slate-800 border-slate-300',
+                      CANCELLED: 'bg-red-100 text-red-800 border-red-300'
+                    };
+
+                    return (
+                      <div
+                        key={booking.id}
+                        className="bg-white rounded-2xl p-5 border border-bamboo-200 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-4"
+                      >
+                        {/* Booking Top Info */}
+                        <div>
+                          <div className="flex items-center justify-between gap-2 pb-3 border-b border-bamboo-200 mb-3">
+                            <div className="flex items-center gap-2">
+                              <span className="font-serif font-black text-sm text-forest-950">
+                                #{booking.bookingNumber}
+                              </span>
+                              <span className="text-[10px] text-forest-700/60">
+                                {booking.placedTimeStr || 'Recent'}
+                              </span>
+                            </div>
+
+                            <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border uppercase tracking-wider ${
+                              statusColors[booking.status] || 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {booking.status}
+                            </span>
+                          </div>
+
+                          {/* Customer & Dietary Tag */}
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <div>
+                              <h4 className="font-bold text-base text-forest-950">
+                                {booking.customerName}
+                              </h4>
+                              <div className="flex items-center gap-2 text-xs text-forest-900/80 mt-0.5">
+                                <Phone className="w-3.5 h-3.5 text-brass-700" />
+                                <span className="font-medium">{booking.contactNumber}</span>
+                              </div>
+                            </div>
+
+                            {/* Dietary badge */}
+                            <div className={`px-2.5 py-1 rounded-xl text-xs font-bold border flex items-center gap-1.5 ${
+                              booking.isVegetarian
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                : 'bg-assamRed-50 text-assamRed-800 border-assamRed-300'
+                            }`}>
+                              <span>{booking.isVegetarian ? '🌱 Pure Veg' : '🍗 Non-Veg'}</span>
+                              <span className="text-[10px] opacity-80">
+                                ({booking.isVegetarian ? 'নিয়ামিষ' : 'আমিষ'})
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Lunch Delivery Time & Plan */}
+                          <div className="bg-riceCream-50 rounded-xl p-3 border border-bamboo-200 space-y-1.5 text-xs mb-3">
+                            <div className="flex justify-between items-center">
+                              <span className="text-forest-900/70 flex items-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5 text-brass-700" />
+                                Lunch Delivery Time:
+                              </span>
+                              <span className="font-bold text-forest-950 bg-white px-2 py-0.5 rounded border border-bamboo-300">
+                                {booking.lunchTime} Daily
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between items-center">
+                              <span className="text-forest-900/70 flex items-center gap-1.5">
+                                <Calendar className="w-3.5 h-3.5 text-forest-700" />
+                                Plan:
+                              </span>
+                              <span className="font-bold text-forest-950">
+                                {booking.planType === 'TRIAL_1_DAY' && '1-Day Trial (1 Meal)'}
+                                {booking.planType === 'WEEKLY_6_DAYS' && 'Weekly Pass (6 Meals)'}
+                                {booking.planType === 'MONTHLY_26_DAYS' && 'Monthly Pass (26 Meals)'}
+                                {booking.totalPrice ? ` • ₹${booking.totalPrice}` : ''}
+                              </span>
+                            </div>
+
+                            {booking.startDate && (
+                              <div className="flex justify-between items-center text-[11px]">
+                                <span className="text-forest-900/60">Starts From:</span>
+                                <span className="font-medium text-forest-950">{booking.startDate}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Office Location */}
+                          <div className="text-xs space-y-1 text-forest-900/80 mb-2">
+                            <div className="flex items-start gap-1.5">
+                              <MapPin className="w-3.5 h-3.5 text-assamRed-600 shrink-0 mt-0.5" />
+                              <div>
+                                {booking.officeName && (
+                                  <span className="font-bold text-forest-950 block">{booking.officeName}</span>
+                                )}
+                                <span>{booking.deliveryAddress}</span>
+                                <span className="text-brass-700 font-bold block mt-0.5">
+                                  Locality: {booking.deliveryArea}
+                                </span>
+                              </div>
+                            </div>
+
+                            {booking.specialDietNotes && (
+                              <div className="mt-2 p-2 rounded-lg bg-yellow-50 border border-yellow-200 text-[11px] text-yellow-900 font-medium">
+                                <strong>Customer Note:</strong> {booking.specialDietNotes}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Action Buttons: WhatsApp, Call, Status Change & Delete */}
+                        <div className="pt-3 border-t border-bamboo-200 space-y-2">
+                          <div className="flex items-center gap-2">
+                            {/* WhatsApp Customer */}
+                            <a
+                              href={`https://wa.me/91${booking.contactNumber.replace(/\D/g, '')}?text=${encodeURIComponent(
+                                `Hello ${booking.customerName}! This is Darikana Kitchen regarding your Daily Office Tiffin booking #${booking.bookingNumber}. We are preparing your ${booking.isVegetarian ? 'Vegetarian' : 'Non-Vegetarian'} lunch for delivery at ${booking.lunchTime}.`
+                              )}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-1 inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-3 rounded-xl text-xs transition-colors"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" />
+                              <span>WhatsApp</span>
+                            </a>
+
+                            {/* Direct Call */}
+                            <a
+                              href={`tel:${booking.contactNumber}`}
+                              className="inline-flex items-center justify-center gap-1.5 bg-riceCream-200 hover:bg-riceCream-300 text-forest-950 font-bold py-2 px-3 rounded-xl text-xs transition-colors"
+                            >
+                              <Phone className="w-3.5 h-3.5 text-forest-900" />
+                              <span>Call</span>
+                            </a>
+
+                            {/* Delete Booking */}
+                            <button
+                              onClick={async () => {
+                                if (window.confirm(`Delete tiffin booking #${booking.bookingNumber} for ${booking.customerName}?`)) {
+                                  await deleteTiffinBooking(booking.id);
+                                  setNotification({ type: 'success', text: `Tiffin booking #${booking.bookingNumber} deleted.` });
+                                }
+                              }}
+                              className="p-2 rounded-xl text-forest-900/40 hover:text-red-600 hover:bg-red-50 transition-colors"
+                              title="Delete Booking"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          {/* Status Dropdown */}
+                          <div className="flex items-center justify-between gap-2 pt-1">
+                            <span className="text-[11px] font-bold text-forest-900/70">Update Status:</span>
+                            <select
+                              value={booking.status}
+                              onChange={async (e) => {
+                                const newSt = e.target.value as TiffinBookingStatus;
+                                await updateTiffinStatus(booking.id, newSt);
+                                setNotification({ type: 'success', text: `Tiffin #${booking.bookingNumber} marked as ${newSt}.` });
+                              }}
+                              className="bg-riceCream-100 border border-bamboo-300 text-forest-950 font-bold text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-brass-500"
+                            >
+                              <option value="NEW">NEW</option>
+                              <option value="CONFIRMED">CONFIRMED</option>
+                              <option value="ACTIVE">ACTIVE</option>
+                              <option value="PAUSED">PAUSED</option>
+                              <option value="COMPLETED">COMPLETED</option>
+                              <option value="CANCELLED">CANCELLED</option>
+                            </select>
+                          </div>
+                        </div>
+
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+              {/* B. DYNAMIC TIFFIN PLANS & PRICING SUB-TAB */}
+              {tiffinSubTab === 'plans' && (
+                <div className="space-y-6">
+                  {/* Banner Info */}
+                  <div className="bg-gradient-to-r from-brass-100 via-riceCream-100 to-brass-100 p-4 rounded-2xl border border-brass-400/40 flex items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-forest-950 text-brass-300 flex items-center justify-center shrink-0 text-lg shadow-sm">
+                        ⚙️
+                      </div>
+                      <div>
+                        <h4 className="font-serif font-bold text-base text-forest-950">
+                          Dynamic Office Tiffin Plans & Pricing
+                        </h4>
+                        <p className="text-xs text-forest-900/70 mt-0.5">
+                          Admin changes made here update the live homepage office tiffin cards, pure veg / non-veg prices, per-meal rates, and booking modal in real-time.
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className="text-[11px] font-bold bg-white text-forest-950 border border-brass-400 px-3 py-1.5 rounded-full shrink-0 shadow-sm hidden sm:inline-block">
+                      ⚡ Live Firestore Sync
+                    </span>
+                  </div>
+
+                  {/* Plans Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {tiffinPlans.map((plan) => {
+                      const vegPerMeal = Math.round(plan.vegPrice / (plan.daysCount || 1));
+                      const nonVegPerMeal = Math.round(plan.nonVegPrice / (plan.daysCount || 1));
+
+                      return (
+                        <div
+                          key={plan.id}
+                          className={`bg-white rounded-3xl p-5 sm:p-6 border-2 transition-all flex flex-col justify-between relative shadow-sm hover:shadow-md ${
+                            plan.isActive
+                              ? 'border-bamboo-200'
+                              : 'border-dashed border-gray-300 bg-gray-50/70 opacity-75'
+                          }`}
+                        >
+                          {/* Top Row: Badge & Active Switch */}
+                          <div>
+                            <div className="flex items-center justify-between gap-2 mb-3">
+                              <div className="flex items-center gap-2">
+                                {plan.badgeTag ? (
+                                  <span className="bg-brass-500 text-forest-950 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-sm">
+                                    {plan.badgeTag}
+                                  </span>
+                                ) : (
+                                  <span className="bg-riceCream-200 text-forest-900 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                                    Standard Plan
+                                  </span>
+                                )}
+                                <span className="text-[11px] font-bold text-forest-700">
+                                  {plan.daysCount} {plan.daysCount === 1 ? 'Day' : 'Days'} ({plan.daysCount} Meals)
+                                </span>
+                              </div>
+
+                              {/* Active Toggle Button */}
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  await updateTiffinPlan(plan.id, { isActive: !plan.isActive });
+                                  setNotification({
+                                    type: 'success',
+                                    text: `Plan "${plan.name}" is now ${!plan.isActive ? 'VISIBLE on website' : 'HIDDEN from website'}.`
+                                  });
+                                }}
+                                className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border transition-all ${
+                                  plan.isActive
+                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                                    : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200'
+                                }`}
+                                title="Click to toggle visibility on website"
+                              >
+                                {plan.isActive ? (
+                                  <>
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span>Active</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <X className="w-3.5 h-3.5 text-gray-500" />
+                                    <span>Hidden</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+
+                            {/* Plan Name & Teaser */}
+                            <h4 className="font-serif font-black text-lg text-forest-950 mb-1">
+                              {plan.name}
+                            </h4>
+                            <p className="text-xs text-forest-900/70 mb-4 line-clamp-2">
+                              {plan.description}
+                            </p>
+
+                            {/* Pricing Box (Veg & Non-Veg) */}
+                            <div className="grid grid-cols-2 gap-2.5 p-3 rounded-2xl bg-riceCream-50 border border-bamboo-200 mb-4">
+                              {/* Veg Price */}
+                              <div className="bg-white p-2.5 rounded-xl border border-emerald-200 shadow-2xs">
+                                <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-800 uppercase tracking-wider mb-0.5">
+                                  <span className="w-2 h-2 rounded-full bg-emerald-600 inline-block"></span>
+                                  <span>Pure Veg (নিয়ামিষ)</span>
+                                </div>
+                                <div className="text-lg font-serif font-black text-forest-950">
+                                  ₹{plan.vegPrice.toLocaleString('en-IN')}
+                                </div>
+                                {plan.daysCount > 1 && (
+                                  <div className="text-[10px] text-emerald-700 font-semibold">
+                                    ₹{vegPerMeal} / meal
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Non-Veg Price */}
+                              <div className="bg-white p-2.5 rounded-xl border border-assamRed-200 shadow-2xs">
+                                <div className="flex items-center gap-1 text-[10px] font-bold text-assamRed-800 uppercase tracking-wider mb-0.5">
+                                  <span className="w-2 h-2 rounded-full bg-assamRed-600 inline-block"></span>
+                                  <span>Non-Veg (আমিষ)</span>
+                                </div>
+                                <div className="text-lg font-serif font-black text-forest-950">
+                                  ₹{plan.nonVegPrice.toLocaleString('en-IN')}
+                                </div>
+                                {plan.daysCount > 1 && (
+                                  <div className="text-[10px] text-assamRed-700 font-semibold">
+                                    ₹{nonVegPerMeal} / meal
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Inclusions summary */}
+                            <div className="space-y-2 text-xs mb-4">
+                              <div className="p-2.5 rounded-xl bg-emerald-50/50 border border-emerald-100">
+                                <span className="text-[10px] font-bold text-emerald-900 uppercase tracking-wider block mb-0.5">
+                                  🌱 Veg Meal Inclusions:
+                                </span>
+                                <p className="text-[11px] text-forest-900/80 leading-relaxed line-clamp-2">
+                                  {Array.isArray(plan.vegIncludes) ? plan.vegIncludes.join(', ') : (plan.vegIncludes || 'Joha Rice, Dal, Seasonal Sabji, Pitika & Salad')}
+                                </p>
+                              </div>
+
+                              <div className="p-2.5 rounded-xl bg-assamRed-50/50 border border-assamRed-100">
+                                <span className="text-[10px] font-bold text-assamRed-900 uppercase tracking-wider block mb-0.5">
+                                  🍗 Non-Veg Inclusions:
+                                </span>
+                                <p className="text-[11px] text-forest-900/80 leading-relaxed line-clamp-2">
+                                  {Array.isArray(plan.nonVegIncludes) ? plan.nonVegIncludes.join(', ') : (plan.nonVegIncludes || 'Joha Rice, Dal, Fish/Chicken Curry, Pitika & Salad')}
+                                </p>
+                              </div>
+
+                              {plan.perks && plan.perks.length > 0 && (
+                                <div className="text-[11px] text-brass-800 font-medium flex flex-wrap gap-1 pt-1">
+                                  {plan.perks.map((perk, pi) => (
+                                    <span key={pi} className="bg-riceCream-100 px-2 py-0.5 rounded-md border border-bamboo-200">
+                                      ✓ {perk}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Action Row */}
+                          <div className="pt-3 border-t border-bamboo-100 flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditPlan(plan)}
+                              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-forest-950 hover:bg-forest-900 text-brass-300 font-bold text-xs shadow transition-colors"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>Edit Pricing & Details</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (window.confirm(`Are you sure you want to delete tiffin plan "${plan.name}"?`)) {
+                                  await deleteTiffinPlan(plan.id);
+                                  setNotification({ type: 'success', text: `Plan "${plan.name}" removed.` });
+                                }
+                              }}
+                              className="p-2 rounded-xl text-forest-900/40 hover:text-red-600 hover:bg-red-50 border border-bamboo-200 transition-colors"
+                              title="Delete Plan"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          )}
+
+          {/* TIFFIN PLAN EDIT / ADD MODAL */}
+          {isPlanModalOpen && (
+            <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+              <div className="bg-white text-forest-950 rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-bamboo-300 my-8">
+                {/* Modal Header */}
+                <div className="flex items-center justify-between pb-4 border-b border-bamboo-200 mb-5">
+                  <div>
+                    <h3 className="font-serif font-black text-xl text-forest-950 flex items-center gap-2">
+                      <span className="text-xl">🍱</span>
+                      <span>{editingPlan ? 'Edit Tiffin Plan & Pricing' : 'Add New Tiffin Plan'}</span>
+                    </h3>
+                    <p className="text-xs text-forest-900/60 mt-0.5">
+                      Configure dynamic prices, days, and traditional Assamese menu details
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setIsPlanModalOpen(false)}
+                    className="w-8 h-8 rounded-full bg-riceCream-100 hover:bg-riceCream-200 flex items-center justify-center text-forest-950 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Form */}
+                <form onSubmit={handleSavePlan} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+                  
+                  {/* Name & Badge */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-forest-900 uppercase tracking-wider mb-1">
+                        Plan Title *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={planFormData.name}
+                        onChange={(e) => setPlanFormData({ ...planFormData, name: e.target.value })}
+                        placeholder="e.g. Weekly Office Pass (6 Days)"
+                        className="w-full bg-riceCream-50 border border-bamboo-300 rounded-xl px-3.5 py-2.5 text-xs text-forest-950 focus:outline-none focus:ring-2 focus:ring-brass-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-forest-900 uppercase tracking-wider mb-1">
+                        Badge Tag (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={planFormData.badgeTag}
+                        onChange={(e) => setPlanFormData({ ...planFormData, badgeTag: e.target.value })}
+                        placeholder="e.g. Most Popular / Best Value / Trial"
+                        className="w-full bg-riceCream-50 border border-bamboo-300 rounded-xl px-3.5 py-2.5 text-xs text-forest-950 focus:outline-none focus:ring-2 focus:ring-brass-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Days count, Veg Price, Non-Veg Price */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 bg-riceCream-50 p-4 rounded-2xl border border-bamboo-200">
+                    <div>
+                      <label className="block text-xs font-bold text-forest-900 uppercase tracking-wider mb-1">
+                        Days (Meals Count) *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        value={planFormData.daysCount}
+                        onChange={(e) => setPlanFormData({ ...planFormData, daysCount: Number(e.target.value) })}
+                        className="w-full bg-white border border-bamboo-300 rounded-xl px-3.5 py-2 text-xs text-forest-950 font-bold focus:outline-none focus:ring-2 focus:ring-brass-500"
+                      />
+                      <span className="text-[10px] text-forest-700/60 mt-0.5 block">e.g. 1, 6, 26</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1">
+                        🌱 Veg Total Price (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        required
+                        value={planFormData.vegPrice}
+                        onChange={(e) => setPlanFormData({ ...planFormData, vegPrice: Number(e.target.value) })}
+                        className="w-full bg-white border border-emerald-300 rounded-xl px-3.5 py-2 text-xs text-forest-950 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                      <span className="text-[10px] text-emerald-700 font-bold mt-0.5 block">
+                        ₹{Math.round(planFormData.vegPrice / (planFormData.daysCount || 1))} / meal
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-assamRed-800 uppercase tracking-wider mb-1">
+                        🍗 Non-Veg Price (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        required
+                        value={planFormData.nonVegPrice}
+                        onChange={(e) => setPlanFormData({ ...planFormData, nonVegPrice: Number(e.target.value) })}
+                        className="w-full bg-white border border-assamRed-300 rounded-xl px-3.5 py-2 text-xs text-forest-950 font-bold focus:outline-none focus:ring-2 focus:ring-assamRed-500"
+                      />
+                      <span className="text-[10px] text-assamRed-700 font-bold mt-0.5 block">
+                        ₹{Math.round(planFormData.nonVegPrice / (planFormData.daysCount || 1))} / meal
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Short Description */}
+                  <div>
+                    <label className="block text-xs font-bold text-forest-900 uppercase tracking-wider mb-1">
+                      Short Description *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={planFormData.description}
+                      onChange={(e) => setPlanFormData({ ...planFormData, description: e.target.value })}
+                      placeholder="e.g. Monday to Saturday fresh office lunch with daily variety and priority desk delivery."
+                      className="w-full bg-riceCream-50 border border-bamboo-300 rounded-xl px-3.5 py-2.5 text-xs text-forest-950 focus:outline-none focus:ring-2 focus:ring-brass-500"
+                    />
+                  </div>
+
+                  {/* Veg Menu Inclusions */}
+                  <div>
+                    <label className="block text-xs font-bold text-emerald-900 uppercase tracking-wider mb-1">
+                      🌱 Pure Veg Inclusions Details
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={planFormData.vegIncludes}
+                      onChange={(e) => setPlanFormData({ ...planFormData, vegIncludes: e.target.value })}
+                      placeholder="Aromatic Joha Rice, Yellow/Mati Dal, Seasonal Sabji (Labra), Aloo or Khar Pitika, Paneer or Bilahi Tok, Fresh Salad & Assam Lemon."
+                      className="w-full bg-riceCream-50 border border-bamboo-300 rounded-xl px-3.5 py-2 text-xs text-forest-950 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  {/* Non-Veg Menu Inclusions */}
+                  <div>
+                    <label className="block text-xs font-bold text-assamRed-900 uppercase tracking-wider mb-1">
+                      🍗 Non-Veg Inclusions Details
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={planFormData.nonVegIncludes}
+                      onChange={(e) => setPlanFormData({ ...planFormData, nonVegIncludes: e.target.value })}
+                      placeholder="Joha Rice, Dal, Mud-Chulha Local Fish Curry (Rohu/Borali) or Local Chicken Curry (rotating menu) + Seasonal Sabji, Pitika & Salad."
+                      className="w-full bg-riceCream-50 border border-bamboo-300 rounded-xl px-3.5 py-2 text-xs text-forest-950 focus:outline-none focus:ring-2 focus:ring-assamRed-500"
+                    />
+                  </div>
+
+                  {/* Perks */}
+                  <div>
+                    <label className="block text-xs font-bold text-forest-900 uppercase tracking-wider mb-1">
+                      Perks & Features (comma-separated)
+                    </label>
+                    <input
+                      type="text"
+                      value={planFormData.perks}
+                      onChange={(e) => setPlanFormData({ ...planFormData, perks: e.target.value })}
+                      placeholder="Free Friday Sweet, Mud-Chulha Taste, Priority Desk Delivery"
+                      className="w-full bg-riceCream-50 border border-bamboo-300 rounded-xl px-3.5 py-2.5 text-xs text-forest-950 focus:outline-none focus:ring-2 focus:ring-brass-500"
+                    />
+                  </div>
+
+                  {/* Display order & Active Toggle */}
+                  <div className="flex items-center justify-between pt-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={planFormData.isActive}
+                        onChange={(e) => setPlanFormData({ ...planFormData, isActive: e.target.checked })}
+                        className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 border-gray-300"
+                      />
+                      <span className="text-xs font-bold text-forest-950">Active on Live Website</span>
+                    </label>
+
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs font-bold text-forest-900">Order:</label>
+                      <input
+                        type="number"
+                        value={planFormData.displayOrder}
+                        onChange={(e) => setPlanFormData({ ...planFormData, displayOrder: Number(e.target.value) })}
+                        className="w-16 bg-riceCream-50 border border-bamboo-300 rounded-lg px-2 py-1 text-xs text-center font-bold text-forest-950"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center justify-end gap-3 pt-4 border-t border-bamboo-200">
+                    <button
+                      type="button"
+                      onClick={() => setIsPlanModalOpen(false)}
+                      className="px-5 py-2.5 rounded-xl border border-bamboo-300 text-xs font-bold text-forest-900 hover:bg-riceCream-100 transition-colors"
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={isSubmittingPlan}
+                      className="px-6 py-2.5 rounded-xl bg-forest-950 hover:bg-forest-900 text-brass-300 font-bold text-xs shadow transition-all disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      {isSubmittingPlan ? (
+                        <span>Saving to Firestore...</span>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4" />
+                          <span>Save Tiffin Plan</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                </form>
+              </div>
             </div>
           )}
 

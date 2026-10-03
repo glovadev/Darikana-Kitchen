@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { MenuItem, CartItem, CustomerDetails, Order, OrderStatus, CategoryItem, DeliveryLocality } from '../types';
-import { MENU_ITEMS, DEFAULT_CATEGORIES, DEFAULT_LOCALITIES, SERVICEABLE_AREAS } from '../data/menuData';
+import { MenuItem, CartItem, CustomerDetails, Order, OrderStatus, CategoryItem, DeliveryLocality, TiffinBooking, TiffinBookingStatus, TiffinPlanType, TiffinPlan } from '../types';
+import { MENU_ITEMS, DEFAULT_CATEGORIES, DEFAULT_LOCALITIES, SERVICEABLE_AREAS, DEFAULT_TIFFIN_PLANS } from '../data/menuData';
 import { 
   subscribeToProducts, 
   addProductToFirestore, 
@@ -19,7 +19,17 @@ import {
   addLocalityToFirestore,
   updateLocalityInFirestore,
   deleteLocalityFromFirestore,
-  seedDefaultLocalities
+  seedDefaultLocalities,
+  subscribeToTiffinBookings,
+  addTiffinBookingToFirestore,
+  updateTiffinBookingStatusInFirestore,
+  deleteTiffinBookingFromFirestore,
+  subscribeToTiffinPlans,
+  updateTiffinPlanInFirestore,
+  addTiffinPlanToFirestore,
+  deleteTiffinPlanFromFirestore,
+  seedDefaultTiffinPlans,
+  seedTiffinPlansWithData
 } from '../services/firebase';
 
 interface OrderSuccessData {
@@ -59,6 +69,20 @@ interface CartContextType {
   setIsCartOpen: (open: boolean) => void;
   isCheckoutOpen: boolean;
   setIsCheckoutOpen: (open: boolean) => void;
+  isTiffinModalOpen: boolean;
+  setIsTiffinModalOpen: (open: boolean) => void;
+  selectedTiffinPlanPreset: { planType?: TiffinPlanType; isVeg?: boolean } | null;
+  openTiffinBookingModal: (preset?: { planType?: TiffinPlanType; isVeg?: boolean }) => void;
+  tiffinSuccess: TiffinBooking | null;
+  setTiffinSuccess: (booking: TiffinBooking | null) => void;
+  tiffinBookings: TiffinBooking[];
+  isLoadingTiffinBookings: boolean;
+  tiffinPlans: TiffinPlan[];
+  isLoadingTiffinPlans: boolean;
+  updateTiffinPlan: (planId: string, updates: Partial<TiffinPlan>) => Promise<void>;
+  addTiffinPlan: (plan: Omit<TiffinPlan, 'id'>) => Promise<string>;
+  deleteTiffinPlan: (planId: string) => Promise<void>;
+  seedTiffinPlans: () => Promise<void>;
   selectedThaliModal: MenuItem | null;
   setSelectedThaliModal: (item: MenuItem | null) => void;
   orderSuccess: OrderSuccessData | null;
@@ -78,6 +102,9 @@ interface CartContextType {
   submitCustomerOrder: (customer: CustomerDetails) => Promise<string>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
   deleteOrder: (orderId: string) => Promise<void>;
+  submitTiffinBooking: (booking: Omit<TiffinBooking, 'id' | 'bookingNumber' | 'status' | 'createdAt' | 'placedTimeStr'>) => Promise<string>;
+  updateTiffinStatus: (bookingId: string, status: TiffinBookingStatus) => Promise<void>;
+  deleteTiffinBooking: (bookingId: string) => Promise<void>;
   addCategory: (category: Omit<CategoryItem, 'id'>) => Promise<string>;
   deleteCategory: (categoryId: string) => Promise<void>;
   seedCategories: () => Promise<void>;
@@ -220,6 +247,40 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isTiffinModalOpen, setIsTiffinModalOpen] = useState(false);
+  const [selectedTiffinPlanPreset, setSelectedTiffinPlanPreset] = useState<{ planType?: TiffinPlanType; isVeg?: boolean } | null>(null);
+  const [tiffinSuccess, setTiffinSuccess] = useState<TiffinBooking | null>(null);
+  const [tiffinBookings, setTiffinBookings] = useState<TiffinBooking[]>(() => {
+    try {
+      const saved = localStorage.getItem('darikana_cached_tiffin');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isLoadingTiffinBookings, setIsLoadingTiffinBookings] = useState(true);
+
+  // Dynamic Tiffin Plans (Pricing & Details editable by Admin)
+  const [tiffinPlans, setTiffinPlans] = useState<TiffinPlan[]>(() => {
+    try {
+      const saved = localStorage.getItem('darikana_cached_tiffin_plans');
+      return saved ? JSON.parse(saved) : DEFAULT_TIFFIN_PLANS;
+    } catch {
+      return DEFAULT_TIFFIN_PLANS;
+    }
+  });
+  const [isLoadingTiffinPlans, setIsLoadingTiffinPlans] = useState(true);
+
+  const openTiffinBookingModal = (preset?: { planType?: TiffinPlanType; isVeg?: boolean }) => {
+    if (preset) {
+      setSelectedTiffinPlanPreset(preset);
+    } else {
+      setSelectedTiffinPlanPreset(null);
+    }
+    setTiffinSuccess(null);
+    setIsTiffinModalOpen(true);
+  };
+
   const [selectedThaliModal, setSelectedThaliModal] = useState<MenuItem | null>(null);
   const [orderSuccess, setOrderSuccess] = useState<OrderSuccessData | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -326,6 +387,86 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       (err) => {
         console.warn("Localities listener warning:", err.message);
         if (isMounted) setIsLoadingLocalities(false);
+      }
+    );
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, []);
+
+  // Real-time Firestore Tiffin Bookings sync
+  useEffect(() => {
+    let isMounted = true;
+
+    const unsubscribe = subscribeToTiffinBookings(
+      (firestoreBookings) => {
+        if (!isMounted) return;
+        setIsLoadingTiffinBookings(false);
+        setTiffinBookings(firestoreBookings || []);
+        try {
+          localStorage.setItem('darikana_cached_tiffin', JSON.stringify(firestoreBookings || []));
+        } catch {}
+      },
+      (err) => {
+        console.warn("Tiffin bookings listener warning:", err.message);
+        if (isMounted) setIsLoadingTiffinBookings(false);
+      }
+    );
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, []);
+
+  // Real-time Firestore Tiffin Plans sync
+  useEffect(() => {
+    let isMounted = true;
+
+    const unsubscribe = subscribeToTiffinPlans(
+      (firestorePlans) => {
+        if (!isMounted) return;
+        setIsLoadingTiffinPlans(false);
+        if (firestorePlans && firestorePlans.length > 0) {
+          setTiffinPlans(firestorePlans);
+          try {
+            localStorage.setItem('darikana_cached_tiffin_plans', JSON.stringify(firestorePlans));
+          } catch {}
+        } else {
+          // If Firestore is empty or not seeded yet, check if user had previously customized plans
+          try {
+            const saved = localStorage.getItem('darikana_cached_tiffin_plans');
+            if (saved) {
+              const parsed = JSON.parse(saved);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setTiffinPlans(parsed);
+                // Also write these plans to Firestore so Firestore now has them
+                seedTiffinPlansWithData(parsed).catch(() => {});
+                return;
+              }
+            }
+          } catch {}
+          setTiffinPlans(DEFAULT_TIFFIN_PLANS);
+          seedTiffinPlansWithData(DEFAULT_TIFFIN_PLANS).catch(() => {});
+        }
+      },
+      (err) => {
+        console.warn("Tiffin plans listener warning:", err.message);
+        if (isMounted) {
+          setIsLoadingTiffinPlans(false);
+          // Preserve localStorage on error/offline
+          try {
+            const saved = localStorage.getItem('darikana_cached_tiffin_plans');
+            if (saved) {
+              const parsed = JSON.parse(saved);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setTiffinPlans(parsed);
+              }
+            }
+          } catch {}
+        }
       }
     );
 
@@ -492,6 +633,138 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setOrders(prev => prev.filter(o => o.id !== orderId));
   };
 
+  // Submit Office Tiffin Booking
+  const submitTiffinBooking = async (bookingData: Omit<TiffinBooking, 'id' | 'bookingNumber' | 'status' | 'createdAt' | 'placedTimeStr'>): Promise<string> => {
+    const bookingNumber = 'TIF-' + Math.floor(100000 + Math.random() * 900000);
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const newBooking: Omit<TiffinBooking, 'id'> = {
+      ...bookingData,
+      bookingNumber,
+      status: 'NEW',
+      placedTimeStr: timeStr
+    };
+
+    let savedId = bookingNumber;
+    try {
+      savedId = await addTiffinBookingToFirestore(newBooking);
+    } catch (err: any) {
+      console.warn("Firestore tiffin booking write error, fallback to local:", err.message);
+    }
+
+    const createdBooking: TiffinBooking = { id: savedId, ...newBooking };
+    setTiffinBookings(prev => [createdBooking, ...prev]);
+    setTiffinSuccess(createdBooking);
+
+    return bookingNumber;
+  };
+
+  // Update Tiffin Status in Firestore
+  const updateTiffinStatus = async (bookingId: string, status: TiffinBookingStatus): Promise<void> => {
+    try {
+      await updateTiffinBookingStatusInFirestore(bookingId, status);
+    } catch (err: any) {
+      console.warn("Firestore update tiffin status warning:", err.message);
+    }
+    setTiffinBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status } : b));
+  };
+
+  // Delete Tiffin Booking in Firestore
+  const deleteTiffinBooking = async (bookingId: string): Promise<void> => {
+    try {
+      await deleteTiffinBookingFromFirestore(bookingId);
+    } catch (err: any) {
+      console.warn("Firestore delete tiffin booking warning:", err.message);
+    }
+    setTiffinBookings(prev => prev.filter(b => b.id !== bookingId));
+  };
+
+  // Tiffin Plans Actions (Editable by Admin)
+  const updateTiffinPlan = async (planId: string, updates: Partial<TiffinPlan>): Promise<void> => {
+    const existing = tiffinPlans.find(p => p.id === planId) || DEFAULT_TIFFIN_PLANS.find(p => p.id === planId);
+    const mergedPlan: TiffinPlan = {
+      id: planId,
+      name: updates.name ?? existing?.name ?? 'Tiffin Plan',
+      planKey: updates.planKey ?? existing?.planKey ?? planId,
+      badgeTag: updates.badgeTag ?? existing?.badgeTag ?? '',
+      daysCount: updates.daysCount ?? existing?.daysCount ?? 1,
+      vegPrice: typeof updates.vegPrice === 'number' ? updates.vegPrice : (existing?.vegPrice ?? 0),
+      nonVegPrice: typeof updates.nonVegPrice === 'number' ? updates.nonVegPrice : (existing?.nonVegPrice ?? 0),
+      description: updates.description ?? existing?.description ?? '',
+      vegIncludes: updates.vegIncludes ?? existing?.vegIncludes ?? [],
+      nonVegIncludes: updates.nonVegIncludes ?? existing?.nonVegIncludes ?? [],
+      perks: updates.perks ?? existing?.perks ?? [],
+      displayOrder: updates.displayOrder ?? existing?.displayOrder ?? 1,
+      isActive: updates.isActive ?? existing?.isActive ?? true
+    };
+
+    // 1. Update React state & localStorage immediately so page reload retains new price
+    setTiffinPlans(prev => {
+      const exists = prev.some(p => p.id === planId);
+      const next = exists 
+        ? prev.map(p => p.id === planId ? { ...p, ...updates } : p)
+        : [...prev, mergedPlan];
+      try {
+        localStorage.setItem('darikana_cached_tiffin_plans', JSON.stringify(next));
+      } catch (e) {
+        console.error("Failed to save tiffin plans to localStorage:", e);
+      }
+      return next;
+    });
+
+    // 2. Persist to Firestore with setDoc merge
+    try {
+      await updateTiffinPlanInFirestore(planId, mergedPlan);
+    } catch (err: any) {
+      console.warn("Firestore update tiffin plan error:", err.message);
+    }
+  };
+
+  const addTiffinPlan = async (plan: Omit<TiffinPlan, 'id'>): Promise<string> => {
+    let savedId = 'plan-' + Date.now();
+    try {
+      savedId = await addTiffinPlanToFirestore(plan);
+    } catch (err: any) {
+      console.warn("Firestore add tiffin plan error:", err.message);
+    }
+    const newPlan: TiffinPlan = { id: savedId, ...plan };
+    setTiffinPlans(prev => {
+      const next = [...prev, newPlan];
+      try {
+        localStorage.setItem('darikana_cached_tiffin_plans', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    return savedId;
+  };
+
+  const deleteTiffinPlan = async (planId: string): Promise<void> => {
+    try {
+      await deleteTiffinPlanFromFirestore(planId);
+    } catch (err: any) {
+      console.warn("Firestore delete tiffin plan error:", err.message);
+    }
+    setTiffinPlans(prev => {
+      const next = prev.filter(p => p.id !== planId);
+      try {
+        localStorage.setItem('darikana_cached_tiffin_plans', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const seedTiffinPlans = async (): Promise<void> => {
+    try {
+      await seedDefaultTiffinPlans();
+    } catch (err: any) {
+      console.warn("Firestore seed default tiffin plans error:", err.message);
+    }
+    setTiffinPlans(DEFAULT_TIFFIN_PLANS);
+    try {
+      localStorage.setItem('darikana_cached_tiffin_plans', JSON.stringify(DEFAULT_TIFFIN_PLANS));
+    } catch {}
+  };
+
   // Category Actions
   const addCategory = async (category: Omit<CategoryItem, 'id'>): Promise<string> => {
     let savedId = 'cat-' + Date.now();
@@ -619,6 +892,20 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsCartOpen,
         isCheckoutOpen,
         setIsCheckoutOpen,
+        isTiffinModalOpen,
+        setIsTiffinModalOpen,
+        selectedTiffinPlanPreset,
+        openTiffinBookingModal,
+        tiffinSuccess,
+        setTiffinSuccess,
+        tiffinBookings,
+        isLoadingTiffinBookings,
+        tiffinPlans,
+        isLoadingTiffinPlans,
+        updateTiffinPlan,
+        addTiffinPlan,
+        deleteTiffinPlan,
+        seedTiffinPlans,
         selectedThaliModal,
         setSelectedThaliModal,
         orderSuccess,
@@ -638,6 +925,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         submitCustomerOrder,
         updateOrderStatus,
         deleteOrder,
+        submitTiffinBooking,
+        updateTiffinStatus,
+        deleteTiffinBooking,
         addCategory,
         deleteCategory,
         seedCategories,

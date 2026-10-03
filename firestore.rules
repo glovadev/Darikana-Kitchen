@@ -43,5 +43,23 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
+    // =========================================================
+    // 5. TIFFIN BOOKINGS (Office Tiffin Subscriptions)
+    // Any customer can book tiffin; Only Admin can view and update status
+    // =========================================================
+    match /tiffin_bookings/{bookingId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // =========================================================
+    // 6. TIFFIN PLANS (Pricing & Details for Office Tiffin)
+    // Public can view active plans; Only Admin can create/edit/delete
+    // =========================================================
+    match /tiffin_plans/{planId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
   }
 }

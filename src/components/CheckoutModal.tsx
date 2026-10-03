@@ -38,6 +38,48 @@ export const CheckoutModal: React.FC = () => {
 
   if (!isCheckoutOpen && !orderSuccess) return null;
 
+  const getWhatsAppOrderUrl = (order: {
+    orderId: string;
+    customer: CustomerDetails;
+    items?: any[];
+    subtotal: number;
+    deliveryCharge: number;
+    packagingFee: number;
+    grandTotal: number;
+  }) => {
+    const itemsList = (order.items && order.items.length > 0)
+      ? order.items.map(i => `• ${i.quantity}× ${i.item?.name || 'Assamese Dish'} (₹${(i.item?.price || 0) * i.quantity})`).join('\n')
+      : '• Assamese Traditional Cooking';
+
+    const msg =
+      `🔥 *NEW ORDER - DARIKANA KITCHEN*\n` +
+      `Authentic Assamese Firewood Cooking\n` +
+      `----------------------------------------\n` +
+      `📋 *Order ID:* #${order.orderId}\n` +
+      `👤 *Customer Name:* ${order.customer.name}\n` +
+      `📞 *Phone Number:* ${order.customer.phone}\n` +
+      `📍 *Delivery Address:* ${order.customer.address}\n` +
+      `🏙️ *Area:* ${order.customer.deliveryArea}\n` +
+      (order.customer.landmark ? `📌 *Landmark:* ${order.customer.landmark}\n` : '') +
+      `⏱️ *Delivery Slot:* ${order.customer.deliverySlot || 'Immediate (40-50 mins)'}\n` +
+      `----------------------------------------\n` +
+      `🍽️ *ITEMS ORDERED:*\n` +
+      `${itemsList}\n` +
+      `----------------------------------------\n` +
+      `💵 *BILL DETAILS:*\n` +
+      `• Items Subtotal: ₹${order.subtotal}\n` +
+      `• Delivery Charge: ${order.deliveryCharge === 0 ? 'FREE (Assam Special)' : `₹${order.deliveryCharge}`}\n` +
+      `• Mud-Chulha Packaging: ₹${order.packagingFee}\n` +
+      `----------------------------------------\n` +
+      `⭐ *TOTAL PAYABLE: ₹${order.grandTotal}*\n` +
+      `💳 *Payment Method:* ${order.customer.paymentMethod === 'COD' ? '💵 Cash on Delivery (COD)' : '⚡ UPI / Online'}\n` +
+      (order.customer.instructions ? `📝 *Cooking Notes:* ${order.customer.instructions}\n` : '') +
+      `----------------------------------------\n` +
+      `Please confirm order preparation on chulha! 🙏`;
+
+    return `https://wa.me/918133958961?text=${encodeURIComponent(msg)}`;
+  };
+
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.phone || !formData.address) {
@@ -48,7 +90,14 @@ export const CheckoutModal: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      await submitCustomerOrder(formData);
+      // Capture cart snapshot before clearing
+      const cartSnapshot = [...cart];
+      const subtotalSnapshot = subtotal;
+      const deliveryChargeSnapshot = deliveryCharge;
+      const packagingFeeSnapshot = packagingFee;
+      const grandTotalSnapshot = grandTotal;
+
+      const orderNumber = await submitCustomerOrder(formData);
 
       // Trigger Confetti Celebration
       confetti({
@@ -57,6 +106,23 @@ export const CheckoutModal: React.FC = () => {
         origin: { y: 0.6 },
         colors: ['#c99b22', '#b31f1f', '#143823', '#e0b034']
       });
+
+      // Automatically open WhatsApp with complete bill to +91 8133958961
+      const waUrl = getWhatsAppOrderUrl({
+        orderId: orderNumber,
+        customer: formData,
+        items: cartSnapshot,
+        subtotal: subtotalSnapshot,
+        deliveryCharge: deliveryChargeSnapshot,
+        packagingFee: packagingFeeSnapshot,
+        grandTotal: grandTotalSnapshot
+      });
+
+      try {
+        window.open(waUrl, '_blank');
+      } catch {
+        // Handled by confirmation screen button
+      }
     } catch (err: any) {
       alert('Failed to place order. Please try again.');
     } finally {
@@ -111,14 +177,25 @@ export const CheckoutModal: React.FC = () => {
               </div>
 
               <span className="text-xs uppercase font-extrabold tracking-widest text-brass-700 block mb-1">
-                Order Placed Successfully
+                Order Received • WhatsApp Dispatch
               </span>
               <h3 className="font-serif text-2xl sm:text-3xl font-bold text-forest-950 mb-2">
                 Thank You, {orderSuccess.customer.name}!
               </h3>
-              <p className="text-xs sm:text-sm text-forest-900/70 max-w-md mx-auto mb-6">
-                Your order <strong className="text-forest-950 font-bold">#{orderSuccess.orderId}</strong> is received. Dipali Barman has fired up the mud chulha to prepare your fresh meals.
+              <p className="text-xs sm:text-sm text-forest-900/70 max-w-md mx-auto mb-4">
+                Your order <strong className="text-forest-950 font-bold">#{orderSuccess.orderId}</strong> has been created and prepared to send directly to Dipali Barman on WhatsApp (+91 8133958961).
               </p>
+
+              {/* WhatsApp Notice Banner */}
+              <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-3.5 max-w-lg mx-auto mb-5 flex items-center gap-3 text-left shadow-xs">
+                <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <MessageCircle className="w-5 h-5 fill-white" />
+                </div>
+                <div className="text-xs text-emerald-950">
+                  <span className="font-bold block">WhatsApp Order Dispatch</span>
+                  <span>If WhatsApp did not open automatically, tap the green button below to send your bill.</span>
+                </div>
+              </div>
 
               {/* Order Details Card */}
               <div className="bg-riceCream-100/80 rounded-2xl p-5 border border-bamboo-200 text-left max-w-lg mx-auto mb-6 space-y-3">
@@ -132,6 +209,22 @@ export const CheckoutModal: React.FC = () => {
                     {orderSuccess.customer.address}, {orderSuccess.customer.deliveryArea}
                   </span>
                 </div>
+
+                {/* Ordered Items List */}
+                {orderSuccess.items && orderSuccess.items.length > 0 && (
+                  <div className="py-2 border-b border-bamboo-200 space-y-1.5 text-xs">
+                    <span className="text-[10px] uppercase font-bold text-forest-900/60 block">
+                      Dishes Ordered:
+                    </span>
+                    {orderSuccess.items.map((it, idx) => (
+                      <div key={idx} className="flex justify-between text-forest-900">
+                        <span>{it.quantity}× {it.item.name}</span>
+                        <span className="font-semibold">₹{it.item.price * it.quantity}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="flex justify-between text-sm font-serif font-black pt-1">
                   <span>Amount to Pay:</span>
                   <span className="text-assamRed-700 text-base">₹{orderSuccess.grandTotal}</span>
@@ -140,17 +233,17 @@ export const CheckoutModal: React.FC = () => {
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <a
-                  href={`https://wa.me/918133958961?text=${encodeURIComponent(`Hello Dipali Barman & Darikana Kitchen team! I just placed order #${orderSuccess.orderId} for ₹${orderSuccess.grandTotal}.`)}`}
+                  href={getWhatsAppOrderUrl(orderSuccess)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-3 rounded-full text-xs transition-all shadow-md"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-7 py-3.5 rounded-full text-xs transition-all shadow-md transform hover:-translate-y-0.5"
                 >
-                  <MessageCircle className="w-4 h-4" />
-                  <span>Chat / Track on WhatsApp</span>
+                  <MessageCircle className="w-4 h-4 fill-white" />
+                  <span>Send / Confirm on WhatsApp</span>
                 </a>
                 <button
                   onClick={handleClose}
-                  className="w-full sm:w-auto bg-forest-900 hover:bg-forest-800 text-brass-300 font-bold px-8 py-3 rounded-full text-xs transition-all"
+                  className="w-full sm:w-auto bg-forest-900 hover:bg-forest-800 text-brass-300 font-bold px-8 py-3.5 rounded-full text-xs transition-all"
                 >
                   Back to Home
                 </button>
@@ -310,17 +403,21 @@ export const CheckoutModal: React.FC = () => {
               <button
                 type="submit"
                 disabled={isSubmitting || cart.length === 0}
-                className="w-full bg-gradient-to-r from-brass-600 via-brass-500 to-brass-600 hover:from-brass-500 hover:to-brass-400 text-forest-950 font-bold py-3.5 rounded-2xl shadow-brass text-sm flex items-center justify-center gap-2 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-4 rounded-2xl shadow-lg shadow-emerald-700/25 text-sm flex items-center justify-center gap-2.5 transition-all transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50"
               >
                 {isSubmitting ? (
-                  <span>Dispatching to Chulha...</span>
+                  <span>Opening WhatsApp & Placing Order...</span>
                 ) : (
                   <>
-                    <ShieldCheck className="w-4 h-4 text-forest-950" />
-                    <span>CONFIRM ORDER (₹{grandTotal})</span>
+                    <MessageCircle className="w-5 h-5 fill-white" />
+                    <span>CONFIRM & SEND ORDER ON WHATSAPP (₹{grandTotal})</span>
                   </>
                 )}
               </button>
+              <p className="text-[11px] text-center text-forest-800/70 flex items-center justify-center gap-1.5 pt-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Your order bill automatically opens on WhatsApp (+91 8133958961) to dispatch</span>
+              </p>
 
             </form>
           )}

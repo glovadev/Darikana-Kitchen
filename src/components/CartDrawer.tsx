@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight, Flame, Sparkles } from 'lucide-react';
+import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight, Flame, Sparkles, MessageCircle } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 
 export const CartDrawer: React.FC = () => {
@@ -199,6 +199,26 @@ export const CartDrawer: React.FC = () => {
                 <span>PROCEED TO CHECKOUT (₹{grandTotal})</span>
                 <ArrowRight className="w-4 h-4 ml-1" />
               </button>
+
+              {/* WhatsApp Quick Order Button */}
+              <a
+                href={`https://wa.me/918133958961?text=${encodeURIComponent(
+                  `🔥 *DIRECT ORDER VIA WHATSAPP - DARIKANA KITCHEN*\n` +
+                  `Authentic Assamese Firewood Cooking\n` +
+                  `----------------------------------------\n` +
+                  `🍽️ *ITEMS IN MY BASKET:*\n` +
+                  cart.map(i => `• ${i.quantity}× ${i.item.name} (₹${i.item.price * i.quantity})`).join('\n') +
+                  `\n----------------------------------------\n` +
+                  `💵 *Estimated Total: ₹${grandTotal}*\n` +
+                  `Hello Dipali Barman! Please confirm and take my delivery address on WhatsApp.`
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full mt-2.5 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-2xl shadow-sm text-xs transition-all"
+              >
+                <MessageCircle className="w-4 h-4 fill-white" />
+                <span>Quick Order Directly via WhatsApp</span>
+              </a>
             </div>
           )}
 

@@ -3,7 +3,7 @@ import { Home, Utensils, ShoppingBag, Flame } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 
 export const MobileBottomBar: React.FC = () => {
-  const { totalItems, setIsCartOpen, setIsCheckoutOpen, currentRoute, navigateTo } = useCart();
+  const { totalItems, setIsCartOpen, setIsCheckoutOpen, currentRoute, navigateTo, openTiffinBookingModal } = useCart();
 
   const handleOrder = () => {
     if (totalItems > 0) {
@@ -46,6 +46,15 @@ export const MobileBottomBar: React.FC = () => {
         >
           <Utensils className="w-5 h-5" />
           <span className="text-[10px] uppercase tracking-wider">Menu</span>
+        </button>
+
+        {/* Office Tiffin Quick Trigger */}
+        <button
+          onClick={() => openTiffinBookingModal()}
+          className="flex flex-col items-center gap-0.5 py-1 text-brass-400 hover:text-brass-300 transition-colors"
+        >
+          <span className="text-base leading-none">🍱</span>
+          <span className="text-[9px] font-bold uppercase tracking-wider">Tiffin</span>
         </button>
 
         {/* Cart */}

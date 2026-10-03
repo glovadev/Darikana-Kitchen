@@ -3,7 +3,16 @@ import { ShoppingBag, Search, Menu, X, Flame, MapPin, Shield, Phone } from 'luci
 import { useCart } from '../context/CartContext';
 
 export const Navbar: React.FC = () => {
-  const { totalItems, setIsCartOpen, setIsCheckoutOpen, searchQuery, setSearchQuery, navigateTo, currentRoute } = useCart();
+  const { 
+    totalItems, 
+    setIsCartOpen, 
+    setIsCheckoutOpen, 
+    searchQuery, 
+    setSearchQuery, 
+    navigateTo, 
+    currentRoute,
+    openTiffinBookingModal
+  } = useCart();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showSearchInput, setShowSearchInput] = useState(false);
@@ -23,6 +32,7 @@ export const Navbar: React.FC = () => {
   const navLinks = [
     { name: 'Home', href: '#hero', isMenu: false },
     { name: 'Menu', href: '/menu', isMenu: true },
+    { name: 'Office Tiffin', href: '#office-tiffin', isMenu: false, isTiffin: true, badge: 'Daily' },
     { name: 'Why Firewood', href: '#why-firewood', isMenu: false },
     { name: 'Our Story', href: '#our-story', isMenu: false },
     { name: 'Assam Heritage', href: '#culture', isMenu: false },
@@ -88,7 +98,7 @@ export const Navbar: React.FC = () => {
           </a>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-7">
+          <nav className="hidden lg:flex items-center gap-6">
             {navLinks.map((link) => {
               const isActive = (link.isMenu && currentRoute === 'menu') || (link.name === 'Home' && currentRoute === 'home');
               return (
@@ -96,13 +106,18 @@ export const Navbar: React.FC = () => {
                   key={link.name}
                   href={link.href}
                   onClick={(e) => handleNavLinkClick(e, link)}
-                  className={`text-sm tracking-wide transition-colors relative py-1 ${
+                  className={`text-sm tracking-wide transition-colors relative py-1 flex items-center gap-1.5 ${
                     isActive 
                       ? 'text-brass-300 font-bold after:content-[\'\'] after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-brass-400' 
                       : 'font-medium text-riceCream-200 hover:text-brass-400 after:content-[\'\'] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-brass-500 hover:after:w-full after:transition-all after:duration-300'
                   }`}
                 >
-                  {link.name}
+                  <span>{link.name}</span>
+                  {link.badge && (
+                    <span className="text-[9px] bg-assamRed-700 text-white font-extrabold px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                      {link.badge}
+                    </span>
+                  )}
                 </a>
               );
             })}
@@ -168,6 +183,16 @@ export const Navbar: React.FC = () => {
             >
               <Shield className="w-5 h-5 text-brass-400" />
               <span className="hidden xl:inline text-xs font-semibold text-brass-300">Admin</span>
+            </button>
+
+            {/* Office Tiffin Quick CTA */}
+            <button
+              onClick={() => openTiffinBookingModal()}
+              className="hidden md:inline-flex items-center gap-1.5 bg-forest-900/90 hover:bg-forest-850 text-brass-300 hover:text-white font-bold text-xs px-3.5 py-2 sm:py-2.5 rounded-full border border-brass-500/50 transition-all shadow-sm hover:scale-105"
+            >
+              <span>🍱</span>
+              <span>Office Tiffin</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
             </button>
 
             {/* Primary Order Now Button */}
@@ -277,6 +302,17 @@ export const Navbar: React.FC = () => {
               <button
                 onClick={() => {
                   setIsMobileMenuOpen(false);
+                  openTiffinBookingModal();
+                }}
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-brass-500 to-brass-400 text-forest-950 font-extrabold py-3 rounded-xl shadow-brass text-xs"
+              >
+                <span className="text-base">🍱</span>
+                <span>BOOK DAILY OFFICE TIFFIN</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
                   navigateTo('admin');
                 }}
                 className="w-full flex items-center justify-center gap-2 bg-forest-900 hover:bg-forest-850 text-brass-300 font-bold py-2.5 rounded-xl border border-brass-500/40 text-xs"
@@ -290,10 +326,10 @@ export const Navbar: React.FC = () => {
                   setIsMobileMenuOpen(false);
                   handleOrderNow();
                 }}
-                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-brass-600 to-brass-500 text-forest-950 font-bold py-3 rounded-xl shadow-brass"
+                className="w-full flex items-center justify-center gap-2 bg-forest-800 hover:bg-forest-750 text-white font-bold py-3 rounded-xl border border-brass-500/30 text-xs"
               >
-                <Flame className="w-5 h-5 text-assamRed-700 fill-assamRed-700" />
-                <span>ORDER NOW</span>
+                <Flame className="w-4 h-4 text-assamRed-500 fill-assamRed-500" />
+                <span>ORDER A LA CARTE / THALI</span>
               </button>
             </div>
           </div>

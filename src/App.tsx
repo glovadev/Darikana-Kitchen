@@ -9,6 +9,8 @@ import { FoodGrid } from './components/FoodGrid';
 import { FounderStory } from './components/FounderStory';
 import { CultureSection } from './components/CultureSection';
 import { SpecialFirewoodVisual } from './components/SpecialFirewoodVisual';
+import { OfficeTiffinSection } from './components/OfficeTiffinSection';
+import { TiffinBookingModal } from './components/TiffinBookingModal';
 import { HowItWorks } from './components/HowItWorks';
 import { DeliveryExperience } from './components/DeliveryExperience';
 import { Gallery } from './components/Gallery';
@@ -29,7 +31,12 @@ function MainAppContent() {
   }
 
   if (currentRoute === 'menu') {
-    return <MenuPage />;
+    return (
+      <>
+        <MenuPage />
+        <TiffinBookingModal />
+      </>
+    );
   }
 
   return (
@@ -38,6 +45,7 @@ function MainAppContent() {
       <main className="flex-grow">
         <Hero />
         <FirewoodStory />
+        <OfficeTiffinSection />
         <ThaliShowcase />
         <FoodGrid />
         <FounderStory />
@@ -53,6 +61,7 @@ function MainAppContent() {
       <CartDrawer />
       <CheckoutModal />
       <ThaliModal />
+      <TiffinBookingModal />
       <MobileBottomBar />
     </div>
   );
