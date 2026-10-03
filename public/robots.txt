@@ -4,4 +4,4 @@ Allow: /
 Disallow: /admin
 
 # Sitemap location
-Sitemap: https://darikanakitchen.com/sitemap.xml
+Sitemap: https://darikanakitchen.in/sitemap.xml
