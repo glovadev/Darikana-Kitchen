@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+        http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+
+  <!-- Homepage / Main Landing -->
+  <url>
+    <loc>https://darikanakitchen.com/</loc>
+    <lastmod>2026-10-04</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.00</priority>
+  </url>
+
+  <!-- Live Food Menu & Dishes -->
+  <url>
+    <loc>https://darikanakitchen.com/menu</loc>
+    <lastmod>2026-10-04</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.90</priority>
+  </url>
+
+  <!-- Daily Office Tiffin Service Guwahati -->
+  <url>
+    <loc>https://darikanakitchen.com/#office-tiffin</loc>
+    <lastmod>2026-10-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.90</priority>
+  </url>
+
+  <!-- Traditional Firewood Mud-Chulha Cooking Story -->
+  <url>
+    <loc>https://darikanakitchen.com/#why-firewood</loc>
+    <lastmod>2026-10-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.80</priority>
+  </url>
+
+  <!-- Authentic Assamese Thalis & Heritage Dishes -->
+  <url>
+    <loc>https://darikanakitchen.com/#thalis</loc>
+    <lastmod>2026-10-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.80</priority>
+  </url>
+
+  <!-- Founder Dipali Barman & Darikana Kitchen Story -->
+  <url>
+    <loc>https://darikanakitchen.com/#our-story</loc>
+    <lastmod>2026-10-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.75</priority>
+  </url>
+
+  <!-- Assam Culinary Culture & Bell Metal Heritage -->
+  <url>
+    <loc>https://darikanakitchen.com/#culture</loc>
+    <lastmod>2026-10-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+  </url>
+
+  <!-- Hot Food Delivery & Serviceable Localities in Guwahati -->
+  <url>
+    <loc>https://darikanakitchen.com/#delivery</loc>
+    <lastmod>2026-10-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.75</priority>
+  </url>
+
+  <!-- Kitchen Gallery & Traditional Cooking Visuals -->
+  <url>
+    <loc>https://darikanakitchen.com/#gallery</loc>
+    <lastmod>2026-10-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.65</priority>
+  </url>
+
+  <!-- Contact, Location & WhatsApp Ordering -->
+  <url>
+    <loc>https://darikanakitchen.com/#contact</loc>
+    <lastmod>2026-10-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.60</priority>
+  </url>
+
+</urlset>

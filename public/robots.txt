@@ -1,0 +1,7 @@
+# Robots.txt for Darikana Kitchen
+User-agent: *
+Allow: /
+Disallow: /admin
+
+# Sitemap location
+Sitemap: https://darikanakitchen.com/sitemap.xml
